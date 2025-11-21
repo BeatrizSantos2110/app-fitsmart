@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dumbbell, Utensils, Droplets, Target, LogOut, Clock } from "lucide-react";
+import { Dumbbell, Utensils, Droplets, Target, LogOut, Clock, Lock } from "lucide-react";
 import AuthForm from "@/components/auth-form";
 import QuizOnboarding from "@/components/quiz-onboarding";
 import SubscriptionSelector from "@/components/subscription-selector";
@@ -23,6 +23,28 @@ export default function Home() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [activeSection, setActiveSection] = useState("dashboard");
   const [isLoading, setIsLoading] = useState(true);
+
+  // Verificar acesso periodicamente (a cada 30 segundos)
+  useEffect(() => {
+    if (!currentUser || appState !== 'app') return;
+
+    const checkAccess = () => {
+      if (!canAccessApp(currentUser)) {
+        if (isTrialExpired(currentUser)) {
+          // Trial expirou - redirecionar para assinatura
+          setAppState('subscription');
+        }
+      }
+    };
+
+    // Verificar imediatamente
+    checkAccess();
+
+    // Verificar a cada 30 segundos
+    const interval = setInterval(checkAccess, 30000);
+
+    return () => clearInterval(interval);
+  }, [currentUser, appState]);
 
   useEffect(() => {
     // Verificar se há usuário logado
@@ -45,11 +67,10 @@ export default function Home() {
 
     // Verificar se pode acessar o app
     if (!canAccessApp(user)) {
-      if (isTrialExpired(user)) {
-        setAppState('subscription');
-        setIsLoading(false);
-        return;
-      }
+      // Se o trial expirou ou não tem assinatura ativa, mostrar tela de assinatura
+      setAppState('subscription');
+      setIsLoading(false);
+      return;
     }
 
     // Carregar dados do usuário
@@ -89,11 +110,30 @@ export default function Home() {
 
   const handleSubscriptionComplete = (user: User) => {
     setCurrentUser(user);
+    
+    // Carregar dados do usuário
+    let data = loadUserData(user.id);
+    
+    if (data) {
+      data = resetDailyData(data);
+      data = registerDailyActivity(data);
+      saveUserData(data);
+    }
+    
+    setUserData(data);
     setAppState('app');
   };
 
   const handleSkipToTrial = () => {
-    setAppState('app');
+    if (!currentUser) return;
+    
+    // Verificar se ainda tem trial disponível
+    if (canAccessApp(currentUser)) {
+      setAppState('app');
+    } else {
+      // Trial expirado - não permitir pular
+      alert('Seu período de teste gratuito expirou. Por favor, escolha um plano para continuar.');
+    }
   };
 
   const handleLogout = () => {
@@ -144,11 +184,14 @@ export default function Home() {
 
   // Tela de Seleção de Assinatura
   if (appState === 'subscription' && currentUser) {
+    const trialExpired = isTrialExpired(currentUser);
+    
     return (
       <SubscriptionSelector
         user={currentUser}
         onSubscriptionComplete={handleSubscriptionComplete}
         onSkipToTrial={handleSkipToTrial}
+        isTrialExpired={trialExpired}
       />
     );
   }
@@ -203,7 +246,7 @@ export default function Home() {
         </header>
 
         {/* Trial Expiring Warning */}
-        {isOnTrial && trialDays <= 1 && (
+        {isOnTrial && trialDays <= 1 && trialDays > 0 && (
           <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white py-3">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
               <p className="text-sm sm:text-base font-medium">

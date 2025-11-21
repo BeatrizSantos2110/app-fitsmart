@@ -19,9 +19,13 @@ import {
   Salad,
   ChefHat,
   Clock,
-  Flame
+  Flame,
+  DollarSign,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { saveUserData, getTodayDate, getTodayData, type UserData } from "@/lib/storage";
+import { getDailySuggestions, type MealSuggestion } from "@/lib/meal-suggestions";
 
 interface NutritionSectionProps {
   userData: UserData;
@@ -31,6 +35,7 @@ interface NutritionSectionProps {
 export default function NutritionSection({ userData, updateUserData }: NutritionSectionProps) {
   const todayData = getTodayData(userData);
   const [showAddMeal, setShowAddMeal] = useState(false);
+  const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
   const [newMeal, setNewMeal] = useState({
     name: "",
     time: "",
@@ -55,6 +60,12 @@ export default function NutritionSection({ userData, updateUserData }: Nutrition
   const proteinProgress = (totalProtein / proteinGoal) * 100;
   const carbsProgress = (totalCarbs / carbsGoal) * 100;
   const fatsProgress = (totalFats / fatsGoal) * 100;
+
+  // Obter sugestões diárias baseadas nas restrições do usuário
+  const dailySuggestions = getDailySuggestions(
+    userData.profile?.dietaryRestrictions || [],
+    userData.profile?.allergies || []
+  );
 
   const handleAddMeal = () => {
     if (newMeal.name && newMeal.time && newMeal.calories && newMeal.protein && newMeal.carbs && newMeal.fats) {
@@ -81,6 +92,26 @@ export default function NutritionSection({ userData, updateUserData }: Nutrition
     }
   };
 
+  const handleAddSuggestion = (suggestion: MealSuggestion) => {
+    const updatedData = { ...userData };
+    
+    const meal = {
+      id: Date.now(),
+      name: suggestion.name,
+      time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      calories: suggestion.calories,
+      protein: suggestion.protein,
+      carbs: suggestion.carbs,
+      fats: suggestion.fats,
+      items: suggestion.ingredients,
+      date: getTodayDate()
+    };
+    
+    updatedData.nutrition.meals.push(meal);
+    saveUserData(updatedData);
+    updateUserData(updatedData);
+  };
+
   const handleDeleteMeal = (id: number) => {
     const updatedData = { ...userData };
     updatedData.nutrition.meals = updatedData.nutrition.meals.filter(meal => meal.id !== id);
@@ -97,92 +128,9 @@ export default function NutritionSection({ userData, updateUserData }: Nutrition
     return Salad;
   };
 
-  // Sugestões de refeições baseadas nas restrições
-  const getMealSuggestions = () => {
-    const restrictions = userData.profile?.dietaryRestrictions || [];
-    const allergies = userData.profile?.allergies || [];
-    
-    let suggestions = [];
-
-    // Café da manhã
-    if (!restrictions.includes("Intolerância à lactose") && !allergies.includes("Leite e derivados")) {
-      suggestions.push({
-        meal: "Café da manhã",
-        option: "Iogurte grego com granola e frutas vermelhas",
-        calories: 350,
-        suitable: true
-      });
-    }
-    
-    if (!restrictions.includes("Intolerância ao glúten") && !allergies.includes("Ovos")) {
-      suggestions.push({
-        meal: "Café da manhã",
-        option: "Ovos mexidos com pão integral e abacate",
-        calories: 420,
-        suitable: true
-      });
-    }
-
-    if (restrictions.includes("Vegano") || restrictions.includes("Vegetariano")) {
-      suggestions.push({
-        meal: "Café da manhã",
-        option: "Smoothie de banana com aveia e pasta de amendoim",
-        calories: 380,
-        suitable: true
-      });
-    }
-
-    // Almoço
-    if (!restrictions.includes("Vegetariano") && !restrictions.includes("Vegano")) {
-      suggestions.push({
-        meal: "Almoço",
-        option: "Frango grelhado com arroz integral e legumes",
-        calories: 650,
-        suitable: true
-      });
-    }
-
-    if (restrictions.includes("Vegetariano")) {
-      suggestions.push({
-        meal: "Almoço",
-        option: "Quinoa com grão de bico, tomate e pepino",
-        calories: 580,
-        suitable: true
-      });
-    }
-
-    if (restrictions.includes("Vegano")) {
-      suggestions.push({
-        meal: "Almoço",
-        option: "Bowl vegano com tofu, arroz integral e vegetais",
-        calories: 600,
-        suitable: true
-      });
-    }
-
-    // Jantar
-    if (!allergies.includes("Peixe") && !restrictions.includes("Vegetariano")) {
-      suggestions.push({
-        meal: "Jantar",
-        option: "Salmão assado com batata doce e aspargos",
-        calories: 550,
-        suitable: true
-      });
-    }
-
-    if (restrictions.includes("Intolerância ao glúten")) {
-      suggestions.push({
-        meal: "Jantar",
-        option: "Carne magra com purê de batata doce e salada",
-        calories: 520,
-        suitable: true
-      });
-    }
-
-    return suggestions.slice(0, 6);
+  const toggleSuggestion = (id: string) => {
+    setExpandedSuggestion(expandedSuggestion === id ? null : id);
   };
-
-  const suggestions = getMealSuggestions();
 
   return (
     <div className="space-y-6">
@@ -306,50 +254,151 @@ export default function NutritionSection({ userData, updateUserData }: Nutrition
         </Card>
       )}
 
-      {/* Sugestões de Refeições */}
-      {suggestions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ChefHat className="w-5 h-5 text-purple-600" />
-              Sugestões Personalizadas
-            </CardTitle>
-            <CardDescription>
-              Refeições adaptadas às suas restrições e objetivos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {suggestions.map((suggestion, idx) => (
-                <Card key={idx} className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20">
-                  <CardContent className="pt-6">
+      {/* Sugestões Diárias de Refeições */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ChefHat className="w-5 h-5 text-purple-600" />
+            Sugestões Personalizadas
+          </CardTitle>
+          <CardDescription>
+            Refeições adaptadas às suas necessidades - Opções baratas que mudam diariamente
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {dailySuggestions.map((suggestion) => (
+              <Card 
+                key={suggestion.id} 
+                className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 hover:shadow-lg transition-shadow"
+              >
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    {/* Header da Sugestão */}
                     <div className="flex items-start gap-3">
                       <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
                         <Utensils className="w-5 h-5 text-purple-600" />
                       </div>
                       <div className="flex-1">
                         <p className="text-xs font-semibold text-purple-600 mb-1">{suggestion.meal}</p>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                          {suggestion.option}
+                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2">
+                          {suggestion.name}
                         </p>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline" className="text-xs">
                             <Flame className="w-3 h-3 mr-1" />
                             {suggestion.calories} cal
                           </Badge>
-                          <Badge className="bg-green-600 text-white text-xs">
-                            Adequado
+                          <Badge variant="outline" className="text-xs">
+                            <DollarSign className="w-3 h-3 mr-1" />
+                            R$ {suggestion.cost.toFixed(2)}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {suggestion.prepTime} min
                           </Badge>
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
+                    {/* Macros */}
+                    <div className="grid grid-cols-3 gap-2 py-3 border-t border-purple-200 dark:border-purple-800">
+                      <div className="text-center">
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Proteína</p>
+                        <p className="text-sm font-bold text-red-600">{suggestion.protein}g</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Carbs</p>
+                        <p className="text-sm font-bold text-blue-600">{suggestion.carbs}g</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Gordura</p>
+                        <p className="text-sm font-bold text-yellow-600">{suggestion.fats}g</p>
+                      </div>
+                    </div>
+
+                    {/* Botão Expandir/Recolher */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleSuggestion(suggestion.id)}
+                      className="w-full text-purple-600 hover:text-purple-700 hover:bg-purple-100"
+                    >
+                      {expandedSuggestion === suggestion.id ? (
+                        <>
+                          <ChevronUp className="w-4 h-4 mr-2" />
+                          Ocultar detalhes
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-4 h-4 mr-2" />
+                          Ver ingredientes e preparo
+                        </>
+                      )}
+                    </Button>
+
+                    {/* Detalhes Expandidos */}
+                    {expandedSuggestion === suggestion.id && (
+                      <div className="space-y-4 pt-4 border-t border-purple-200 dark:border-purple-800">
+                        {/* Ingredientes */}
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
+                            <Apple className="w-4 h-4 text-green-600" />
+                            Ingredientes:
+                          </h4>
+                          <ul className="space-y-1">
+                            {suggestion.ingredients.map((ingredient, idx) => (
+                              <li key={idx} className="text-xs text-gray-700 dark:text-gray-300 flex items-start gap-2">
+                                <span className="text-purple-600 mt-0.5">•</span>
+                                <span>{ingredient}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Modo de Preparo */}
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
+                            <ChefHat className="w-4 h-4 text-orange-600" />
+                            Modo de Preparo:
+                          </h4>
+                          <ol className="space-y-2">
+                            {suggestion.preparation.map((step, idx) => (
+                              <li key={idx} className="text-xs text-gray-700 dark:text-gray-300 flex items-start gap-2">
+                                <span className="font-bold text-purple-600 min-w-[20px]">{idx + 1}.</span>
+                                <span>{step}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+
+                        {/* Tags */}
+                        <div className="flex flex-wrap gap-2">
+                          {suggestion.tags.map((tag, idx) => (
+                            <Badge key={idx} className="bg-purple-600 text-white text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Botão Adicionar */}
+                    <Button
+                      onClick={() => handleAddSuggestion(suggestion)}
+                      className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                      size="sm"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Adicionar ao meu dia
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Refeições do Dia */}
       <Card>

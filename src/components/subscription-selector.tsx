@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, CreditCard, Clock, Zap, Crown } from "lucide-react";
+import { Check, CreditCard, Clock, Zap, Crown, Lock, AlertCircle } from "lucide-react";
 import { type User, updateSubscription, getTrialDaysRemaining } from "@/lib/auth";
 import PaymentForm from "./payment-form";
 
@@ -12,9 +12,10 @@ interface SubscriptionSelectorProps {
   user: User;
   onSubscriptionComplete: (user: User) => void;
   onSkipToTrial: () => void;
+  isTrialExpired?: boolean;
 }
 
-export default function SubscriptionSelector({ user, onSubscriptionComplete, onSkipToTrial }: SubscriptionSelectorProps) {
+export default function SubscriptionSelector({ user, onSubscriptionComplete, onSkipToTrial, isTrialExpired = false }: SubscriptionSelectorProps) {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual' | null>(null);
   const [showPayment, setShowPayment] = useState(false);
   const trialDays = getTrialDaysRemaining(user);
@@ -79,44 +80,89 @@ export default function SubscriptionSelector({ user, onSubscriptionComplete, onS
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
-          <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 text-sm">
-            Escolha seu plano
-          </Badge>
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-gray-100">
-            Comece sua transformação agora
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Escolha o plano ideal para você ou experimente grátis por {trialDays} dias
-          </p>
+          {isTrialExpired ? (
+            <>
+              <Badge className="bg-gradient-to-r from-red-600 to-orange-600 text-white px-4 py-2 text-sm flex items-center gap-2 mx-auto w-fit">
+                <Lock className="w-4 h-4" />
+                Período de teste expirado
+              </Badge>
+              <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-gray-100">
+                Seu teste gratuito acabou
+              </h1>
+              <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+                Para continuar aproveitando todos os recursos do FitSmart, escolha um dos nossos planos
+              </p>
+            </>
+          ) : (
+            <>
+              <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 text-sm">
+                Escolha seu plano
+              </Badge>
+              <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-gray-100">
+                Comece sua transformação agora
+              </h1>
+              <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+                Escolha o plano ideal para você ou experimente grátis por {trialDays} dias
+              </p>
+            </>
+          )}
         </div>
 
-        {/* Trial Option */}
-        <Card className="border-2 border-green-200 dark:border-green-800 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 shadow-xl">
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* Trial Expired Warning */}
+        {isTrialExpired && (
+          <Card className="border-2 border-red-200 dark:border-red-800 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 shadow-xl">
+            <CardContent className="p-6">
               <div className="flex items-start gap-4">
-                <div className="bg-green-500 p-3 rounded-xl">
-                  <Clock className="w-6 h-6 text-white" />
+                <div className="bg-red-500 p-3 rounded-xl flex-shrink-0">
+                  <AlertCircle className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    Teste Grátis por {trialDays} Dias
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                    Acesso Bloqueado
                   </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Experimente todos os recursos sem compromisso. Após o período de teste, você pode escolher um plano ou cancelar.
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                    Seus 3 dias de teste gratuito expiraram. Para continuar acessando o FitSmart e todos os seus recursos, você precisa assinar um dos nossos planos.
                   </p>
+                  <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                    <li>✓ Acesso imediato após a assinatura</li>
+                    <li>✓ Garantia de 7 dias - devolução sem perguntas</li>
+                    <li>✓ Cancele quando quiser, sem multas</li>
+                  </ul>
                 </div>
               </div>
-              <Button
-                onClick={onSkipToTrial}
-                variant="outline"
-                className="border-2 border-green-500 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 whitespace-nowrap"
-              >
-                Começar Teste Grátis
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Trial Option - Only show if trial is NOT expired */}
+        {!isTrialExpired && trialDays > 0 && (
+          <Card className="border-2 border-green-200 dark:border-green-800 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 shadow-xl">
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="bg-green-500 p-3 rounded-xl">
+                    <Clock className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                      Teste Grátis por {trialDays} Dias
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Experimente todos os recursos sem compromisso. Após o período de teste, você pode escolher um plano ou cancelar.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={onSkipToTrial}
+                  variant="outline"
+                  className="border-2 border-green-500 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 whitespace-nowrap"
+                >
+                  Começar Teste Grátis
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Plans Grid */}
         <div className="grid md:grid-cols-2 gap-6">
