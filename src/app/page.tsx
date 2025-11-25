@@ -12,6 +12,7 @@ import DashboardOverview from "@/components/dashboard-overview";
 import WorkoutSection from "@/components/workout-section";
 import NutritionSection from "@/components/nutrition-section";
 import HydrationSection from "@/components/hydration-section";
+import { InstallPWA } from "@/components/install-pwa";
 import { getUserId, loadUserData, initializeUserData, resetDailyData, registerDailyActivity, saveUserData, type UserData } from "@/lib/storage";
 import { getCurrentUser, logoutUser, markQuizComplete, canAccessApp, isTrialExpired, getTrialDaysRemaining, type User } from "@/lib/auth";
 
@@ -298,6 +299,9 @@ export default function Home() {
           {activeSection === "nutrition" && <NutritionSection userData={userData} updateUserData={updateUserData} />}
           {activeSection === "hydration" && <HydrationSection userData={userData} updateUserData={updateUserData} />}
         </main>
+
+        {/* Install PWA Banner */}
+        <InstallPWA />
       </div>
     );
   }
